@@ -1,0 +1,40 @@
+<?php
+class Paket_sofa extends CI_Model {
+
+/*
+Yang sudah diedit dan ok :
+get_info($item_kit_id)                     Gets item kit items for a particular item kit
+save(&$item_kit_items_data, $item_kit_id)  Inserts or updates an item kit's items
+delete($item_kit_id)                       Deletes item kit items given an item kit
+*/
+
+/*  Gets item kit items for a particular item kit  */
+function get_info($item_kit_id) {
+  $this->db->from('paket_sofa_items');
+  $this->db->where('paket_id', $item_kit_id);
+  
+  //return an array of item kit items for an item
+  return $this->db->get()->result_array();
+}
+
+/*  Inserts or updates an item kit's items  */
+function save(&$item_kit_items_data, $item_kit_id) {
+  //Run these queries as a transaction, we want to make sure we do all or nothing
+  $this->db->trans_start();
+  $this->delete($item_kit_id);
+  
+  foreach ($item_kit_items_data as $row) {
+    $row['paket_id'] = $item_kit_id;
+    $this->db->insert('paket_sofa_items', $row);		
+  }
+  
+  $this->db->trans_complete();
+  return true;
+}
+
+/*  Deletes item kit items given an item kit  */
+function delete($item_kit_id) {
+	return $this->db->delete('paket_sofa_items', array('paket_id' => $item_kit_id)); 
+}
+}
+?>

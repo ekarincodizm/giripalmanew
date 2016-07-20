@@ -63,6 +63,7 @@
 	<!-- <script type="text/javascript" src="js/swfobject.js" language="javascript"></script> -->
 	<script type="text/javascript" src="js/tabcontent.js" language="javascript"></script>
 	<script type="text/javascript" src="js/thickbox.js" language="javascript"></script>
+    
   <!-- Bootstrap Datetimepicker -->
   <script type="text/javascript" src="themes/adminlte/plugins/datetimepicker-eonasdan/moment.js"></script>
   <script type="text/javascript" src="themes/adminlte/plugins/datetimepicker-eonasdan/bootstrap-datetimepicker.js"></script>
