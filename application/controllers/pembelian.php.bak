@@ -11,17 +11,20 @@ function __construct() {
   $this->load->library('sale_lib');
 }
 
-function index($item_kit_id=-1) {
+function index($item_kit_id=-1, $id=0) {
   $today = getdate();
   //$supplier = $this->get_supplier();
-  $data['pembelian_info'] = $this->get_info($item_kit_id); 
-  $data['title']          = 'Info Pembelian';
-  $data['faktur']         = $this->autoGenerate();
-  $data['tanggal']        = $today['year'].'/'.$this->generateFaktur($today['mon']).'/'.$this->generateFaktur($today['mday']);
-  $data['supplier']       = $this->get_supplier();
-  $data['cart']           = $this->get_cart();
+  $data['pembelian_info']          = $this->get_info($item_kit_id); 
+  $data['title']                   = 'Info Pembelian';
+  $data['faktur']                  = $this->autoGenerate();
+  $data['tanggal']                 = $today['year'].'/'.$this->generateFaktur($today['mon']).'/'.$this->generateFaktur($today['mday']);
+  $data['supplier']                = $this->get_supplier();
+  $data['locked']                  = '1';
+  switch ($id) {
+    case 1: $data['pembelian'] = 'Sukses masukkan data faktur'; break;
+    case 2: $data['pembelian'] = 'Error...'; break;
+  } $this->load->view("pembelian/manage", $data);
   
-  $this->load->view("pembelian/manage", $data);
 }
 
 function search()	{
@@ -111,16 +114,28 @@ function save($item_kit_id=-1) {
 function delete() {
 	$item_kits_to_delete = $this->input->post('ids');
 
-	if ($this->Item_kit->delete_list($item_kits_to_delete))
-	{
+	if ($this->Item_kit->delete_list($item_kits_to_delete)) {
 		echo json_encode(array('success'=>true,
 							'message'=>$this->lang->line('item_kits_successful_deleted').' '.count($item_kits_to_delete).' '.$this->lang->line('item_kits_one_or_multiple')));
-	}
-	else
-	{
+	}	else {
 		echo json_encode(array('success'=>false,
 							'message'=>$this->lang->line('item_kits_cannot_be_deleted')));
 	}
+}
+
+function customer_search() {
+  $suggestions = array();
+  $response    = array();
+  $this->db->select('*');
+  $this->db->from('customers');
+  //$this->db->join('people', 'ospos_people.person_id = ospos_customers.person_id');
+  $this->db->order_by('person_id', 'asc');
+  $suggestions = $this->db->get();
+  
+  if($suggestions->num_rows() > 0) foreach($suggestions->result() as $suggest){
+  $response[] = array(
+    'value' => $suggest->person_id);
+  } echo json_encode($response);
 }
 
 function item_search() {
@@ -134,13 +149,12 @@ function item_search() {
   $response = array();
   if($suggestions->num_rows() > 0) foreach($suggestions->result() as $suggest){
       $response[] = array(
-        'value' => $suggest->item_number.', '.$suggest->name,
-        'id' => $suggest->item_id,
-        'name' => $suggest->name,
-		'category'  => $suggest->category,
-		'price' => $suggest->cost_price,
-		'satuan' => $suggest->satuan
-        );
+        'value'     => $suggest->item_number.', '.$suggest->name,
+        'id'        => $suggest->item_id,
+        'name'      => $suggest->name,
+        'category'  => $suggest->category,
+        'price'     => $suggest->cost_price,
+        'satuan'    => $suggest->satuan );
   }
     
   // second, search item kits
@@ -148,9 +162,8 @@ function item_search() {
   if($suggestions->num_rows() > 0) foreach($suggestions->result() as $suggest){
     $response[] = array(
     'value' => 'KIT '.$suggest->name,
-    'id' => 'KIT '.$suggest->item_kit_id,
-    'name' => $suggest->name
-    );
+    'id'    => 'KIT '.$suggest->item_kit_id,
+    'name'  => $suggest->name );
   }
   
   echo json_encode($response);
@@ -181,21 +194,43 @@ function get_supplier() {
   return $option;  
 }
 
-function get_cart() {
-  
-}
-
 function add() {
-  $data['noFaktur']   = $this -> input -> post('noFakturH');
-  $data['tglFakturH'] = $this -> input -> post('tglFakturH');
-  $data['supplier']   = $this -> input -> post('supplier');
-  $data['namaBrg']    = $this -> input -> post('namaBrg');
-  $data['jenisBrg']   = $this -> input -> post('jenisBrg');
-  $data['quantity']   = $this -> input -> post('quantity');
-  $data['satuan']     = $this -> input -> post('satuan');
-  $data['hargaBeli']  = $this -> input -> post('hargaBeli');
-  $data['diskon']     = $this -> input -> post('diskon');
+  $dataFaktur = array();
+  $dataFaktur['noFaktur']   = $this -> input -> post('noFakturH');
+  $dataFaktur['tglFaktur']  = $this -> input -> post('tglFakturH');
+  $dataFaktur['supplier']   = $this -> input -> post('supplier');
+  $dataFaktur['keterangan'] = $this -> input -> post('keterangan');
+  $dataFaktur['pelanggan']  = $this -> input -> post('pelangganH');
+  $dataFaktur['locked']     = $this -> input -> post('locked');
+  /*
+  if ($this->db->insert('pembelian_id', $dataFaktur)) {
+    $this->db->from('counter');
+    $query = $this->db->get();
+    $this->counter($query->row('counter')+1, 0);
+    $this->index(-1,1);
+  } else $this->index(-1,2);*/
   
+  $data = array();
+  foreach ($this -> input -> post('jumlah') as $id => $x) { $data[1][] = array( 'jumlah' => $x ); }
+  foreach ($this -> input -> post('harga')  as $id => $x) { $data[2][] = array( 'harga' => $x ); }
+  foreach ($this -> input -> post('diskon') as $id => $x) { 
+    if ($x == NULL || $x == 0) $data[3][] = array( 'diskon' => '0' ); 
+    else $data[3][] = array( 'diskon' => $x ); 
+    $data[4][] = array( 'id' => $id ); }
+
+  $a=0;
+  while ($a < count($data[1])) {
+  $data[0][$a] = array(
+    'noFaktur' => $dataFaktur['noFaktur'],
+    'item_id'  => $data[4][$a]['id'], 
+    'jumlah'   => $data[1][$a]['jumlah'],
+    'harga'    => $data[2][$a]['harga'],
+    'diskon'   => $data[3][$a]['diskon']);
+  $a++;
+  }
+  var_dump($_POST);
+  //print_r($dataFaktur);
+  //foreach($data[0] as $detail)  $this->db->insert('pembelian', $detail);
 }
 
 function autoGenerate() {
@@ -209,7 +244,7 @@ function autoGenerate() {
   
   if ($query->row('tanggal') == $today['mday']) $noFaktur .= $this->generateFaktur($query->row('counter'));
   else {
-    $noFaktur .= "001";
+    $noFaktur .= "01";
     $this->counter(0, $today['mday']);
   } return $noFaktur;
 }
@@ -229,8 +264,7 @@ function counter($counter, $tanggal) {
   else {
   $this->db->set('tanggal', $tanggal);
   $this->db->set('counter', 1);
-}
-  $this->db->update('counter');
+  } $this->db->update('counter');
 }
 
 }
